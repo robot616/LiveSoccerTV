@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مستخرج قنوات LiveSoccerTV</title>
+    <title>مستخرج ومرتب القنوات</title>
     <style>
         :root {
             --bg-color: #121826;
@@ -31,27 +31,38 @@
         h1 {
             text-align: center;
             color: var(--accent-color);
+            margin-bottom: 10px;
+        }
+        
+        p.subtitle {
+            text-align: center;
+            color: var(--text-muted);
             margin-bottom: 25px;
         }
 
         .input-group {
             display: flex;
-            gap: 10px;
+            flex-direction: column;
+            gap: 15px;
             margin-bottom: 25px;
         }
 
-        input[type="text"] {
-            flex: 1;
-            padding: 12px 16px;
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 15px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
             background-color: var(--card-bg);
             color: #fff;
             font-size: 15px;
             outline: none;
+            resize: vertical;
+            box-sizing: border-box;
+            font-family: monospace;
         }
 
-        input[type="text"]:focus {
+        textarea:focus {
             border-color: var(--accent-color);
         }
 
@@ -62,21 +73,15 @@
             background-color: var(--accent-color);
             color: #121826;
             font-weight: bold;
-            font-size: 15px;
+            font-size: 16px;
             cursor: pointer;
             transition: opacity 0.2s;
+            align-self: center;
+            min-width: 200px;
         }
 
         button:hover {
             opacity: 0.9;
-        }
-
-        .loading {
-            display: none;
-            text-align: center;
-            font-size: 16px;
-            color: var(--accent-color);
-            margin: 20px 0;
         }
 
         .results {
@@ -115,13 +120,14 @@
             background: none;
             border: 1px solid var(--border-color);
             color: var(--text-muted);
-            padding: 6px 10px;
+            padding: 6px 12px;
             border-radius: 6px;
             font-size: 14px;
             display: flex;
             align-items: center;
             gap: 5px;
             text-decoration: none;
+            cursor: pointer;
         }
 
         .icon-btn:hover {
@@ -152,158 +158,106 @@
 <body>
 
 <div class="container">
-    <h1>مستخرج القنوات الرياضية</h1>
+    <h1>مستخرج ومرتب القنوات</h1>
+    <p class="subtitle">حدد الجدول من موقع LiveSoccerTV بالماوس (من أول دولة لآخر قناة)، انسخه (Ctrl+C)، ثم الصقه هنا (Ctrl+V)</p>
     
     <div class="input-group">
-        <input type="text" id="matchUrl" placeholder="ضع رابط المباراة من LiveSoccerTV هنا (تأكد أنه يبدأ بـ https)...">
-        <button onclick="processMatch()">استخراج القنوات</button>
+        <textarea id="pasteArea" placeholder="الصق القنوات والدول هنا..."></textarea>
+        <button onclick="processPastedText()">ترتيب القنوات</button>
     </div>
-
-    <div class="loading" id="loading">جاري سحب البيانات، يرجى الانتظار قليلاً...</div>
 
     <div class="results" id="results"></div>
 </div>
 
 <script>
+    // تخزين روابط القنوات
     let customLinks = {};
 
-    // تحميل الروابط المحفوظة
-    async function loadSavedLinks() {
-        try {
-            const res = await fetch('channels.json');
-            if (res.ok) {
-                const data = await res.json();
-                customLinks = { ...data };
-            }
-        } catch (e) {
-            console.log("No channels.json found on server.");
-        }
-
+    // تحميل الروابط من المتصفح عند فتح الصفحة
+    function loadSavedLinks() {
         const localData = localStorage.getItem('custom_channel_links');
         if (localData) {
-            customLinks = { ...customLinks, ...JSON.parse(localData) };
+            customLinks = JSON.parse(localData);
         }
     }
 
     loadSavedLinks();
 
-    // دالة لجلب الكود المصدري باستخدام عدة بدائل لضمان عدم الفشل
-    async function fetchHtml(url) {
-        const encodedUrl = encodeURIComponent(url);
-        const proxies = [
-            `https://api.allorigins.win/raw?url=${encodedUrl}`,
-            `https://api.codetabs.com/v1/proxy?quest=${url}`,
-            `https://corsproxy.io/?${encodedUrl}`
-        ];
-
-        for (let proxy of proxies) {
-            try {
-                let response = await fetch(proxy);
-                if (response.ok) {
-                    return await response.text();
-                }
-            } catch (e) {
-                console.warn(`فشل الاتصال بالوسيط: ${proxy}`);
-            }
-        }
-        throw new Error("فشلت جميع محاولات الاتصال. تأكد من صحة الرابط أو قم بتعطيل مانع الإعلانات (Adblocker).");
-    }
-
-    async function processMatch() {
-        let urlInput = document.getElementById('matchUrl').value.trim();
+    function processPastedText() {
+        const text = document.getElementById('pasteArea').value.trim();
         const resultsDiv = document.getElementById('results');
-        const loadingDiv = document.getElementById('loading');
 
-        if (!urlInput) {
-            alert('يرجى إدخال الرابط أولاً');
+        if (!text) {
+            alert('يرجى لصق البيانات في المربع أولاً');
             return;
         }
 
-        // التأكد من أن الرابط يحتوي على بروتوكول
-        if (!urlInput.startsWith('http')) {
-            urlInput = 'https://' + urlInput;
-        }
+        let channelsMap = {};
+        const lines = text.split('\n');
 
-        resultsDiv.innerHTML = '';
-        loadingDiv.style.display = 'block';
+        lines.forEach(line => {
+            // تنظيف السطر
+            line = line.trim();
+            if (!line) return;
 
-        try {
-            const htmlText = await fetchHtml(urlInput);
-            
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
+            // عندما تقوم بنسخ جدول من المتصفح، يتم فصل الأعمدة بمسافة Tab (\t)
+            // إذا لم يجد Tab، سيحاول الفصل بالمسافات الكبيرة الناتجة عن النسخ
+            let parts = line.split(/\t| {2,}/); 
 
-            const coverageHeader = Array.from(doc.querySelectorAll('h2, h3, div')).find(
-                el => el.textContent.includes('International Coverage')
-            );
-
-            if (!coverageHeader) {
-                alert('لم يتم العثور على قسم International Coverage في الصفحة.');
-                loadingDiv.style.display = 'none';
-                return;
-            }
-
-            const container = coverageHeader.closest('table') || coverageHeader.parentElement;
-            const rows = container.querySelectorAll('tr, div.listing, div.matchrow');
-
-            let channelsMap = {};
-
-            rows.forEach(row => {
-                const countryElem = row.querySelector('.country, .flag, [class*="country"]');
-                const channelLinks = row.querySelectorAll('a');
-
-                if (countryElem && channelLinks.length > 0) {
-                    const countryName = countryElem.textContent.trim();
-                    channelLinks.forEach(ch => {
-                        const chName = ch.textContent.trim();
-                        if (chName && chName.length > 1 && !chName.includes('Live Stream') && !chName.includes('TV Schedule')) {
-                            if (!channelsMap[chName]) {
-                                channelsMap[chName] = new Set();
-                            }
-                            channelsMap[chName].add(countryName);
+            if (parts.length >= 2) {
+                // الجزء الأول دائماً يكون الدولة
+                let country = parts[0].trim();
+                
+                // الأجزاء الباقية هي القنوات
+                for (let i = 1; i < parts.length; i++) {
+                    let chName = parts[i].trim();
+                    // تجاهل الكلمات غير المفيدة
+                    if (chName && chName.length > 1 && !chName.toLowerCase().includes('live stream') && !chName.toLowerCase().includes('tv schedule')) {
+                        if (!channelsMap[chName]) {
+                            channelsMap[chName] = new Set();
                         }
-                    });
+                        channelsMap[chName].add(country);
+                    }
                 }
-            });
+            }
+        });
 
-            const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
-                acc[key] = Array.from(channelsMap[key]);
-                return acc;
-            }, {});
+        // الترتيب الأبجدي للقنوات
+        const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
+            acc[key] = Array.from(channelsMap[key]);
+            return acc;
+        }, {});
 
-            renderResults(sortedChannels);
-
-        } catch (err) {
-            alert('حدث خطأ أثناء معالجة الرابط: ' + err.message);
-        } finally {
-            loadingDiv.style.display = 'none';
-        }
+        renderResults(sortedChannels);
     }
 
     function renderResults(channels) {
         const resultsDiv = document.getElementById('results');
         resultsDiv.innerHTML = '';
 
-        if (Object.keys(channels).length === 0) {
-            resultsDiv.innerHTML = '<p style="text-align:center;">لم يتم العثور على قنوات.</p>';
+        const keys = Object.keys(channels);
+        if (keys.length === 0) {
+            resultsDiv.innerHTML = '<p style="text-align:center; color: #ef4444;">لم يتم التعرف على قنوات. تأكد من نسخ الجدول كاملاً بشكل صحيح.</p>';
             return;
         }
 
-        for (const [channel, countries] of Object.entries(channels)) {
+        keys.forEach(channel => {
+            const countries = channels[channel];
             const card = document.createElement('div');
             card.className = 'channel-card';
 
+            // تحديد الرابط: هل هو محفوظ أم رابط بحث جوجل؟
             const savedLink = customLinks[channel];
-            const searchUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel + " live")}`;
+            const targetUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel + " live streaming")}`;
 
             card.innerHTML = `
                 <div class="channel-header">
                     <span class="channel-name">${channel}</span>
                     <div class="actions">
-                        <a href="${searchUrl}" target="_blank" class="icon-btn ${savedLink ? 'custom-link-badge' : ''}">
+                        <a href="${targetUrl}" target="_blank" class="icon-btn ${savedLink ? 'custom-link-badge' : ''}" title="افتح القناة">
                             🔗 ${savedLink ? 'رابط القناة' : 'بحث جوجل'}
                         </a>
-                        <button onclick="addCustomLink('${channel}')" class="icon-btn" title="تعديل/إضافة رابط">⚙️</button>
+                        <button onclick="addCustomLink('${channel}')" class="icon-btn" title="أضف أو عدل رابط هذه القناة">⚙️</button>
                     </div>
                 </div>
                 <div class="countries-list">
@@ -311,21 +265,24 @@
                 </div>
             `;
             resultsDiv.appendChild(card);
-        }
+        });
     }
 
     function addCustomLink(channelName) {
         const currentLink = customLinks[channelName] || '';
-        const newLink = prompt(`أدخل الرابط المباشر لقناة "${channelName}":`, currentLink);
+        const newLink = prompt(`أدخل الرابط المباشر لقناة "${channelName}":\n(اترك المربع فارغاً لمسح الرابط والعودة لبحث جوجل)`, currentLink);
 
         if (newLink !== null) {
             if (newLink.trim() === '') {
-                delete customLinks[channelName];
+                delete customLinks[channelName]; // حذف الرابط إذا تركه فارغاً
             } else {
-                customLinks[channelName] = newLink.trim();
+                customLinks[channelName] = newLink.trim(); // حفظ الرابط الجديد
             }
+            // حفظ التغييرات في ذاكرة المتصفح
             localStorage.setItem('custom_channel_links', JSON.stringify(customLinks));
-            processMatch(); // إعادة التحميل لتحديث شكل الزر فوراً
+            
+            // إعادة رسم القنوات لتحديث شكل الزر فوراً (من بحث جوجل إلى رابط القناة)
+            processPastedText();
         }
     }
 </script>
