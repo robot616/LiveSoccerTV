@@ -3,20 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>مستخرج ومرتب القنوات</title>
+    <title>مستخرج القنوات الرياضية | LiveSoccerTV</title>
     <style>
         :root {
-            --bg-color: #121826;
-            --card-bg: #1b2333;
-            --accent-color: #00d26a;
-            --text-color: #e2e8f0;
-            --text-muted: #94a3b8;
-            --border-color: #2d3748;
+            --accent-color: #00ff73; /* لون أخضر فوسفوري رياضي */
+            --accent-hover: #00cc5c;
+            --text-color: #ffffff;
+            --text-muted: #cbd5e1;
+            --card-bg: rgba(21, 28, 43, 0.85); /* لون داكن شبه شفاف */
+            --border-color: rgba(255, 255, 255, 0.1);
         }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background-color: var(--bg-color);
+            /* خلفية ملعب مع طبقة تعتيم لبروز النصوص */
+            background: linear-gradient(rgba(9, 15, 28, 0.88), rgba(9, 15, 28, 0.88)), 
+                        url('https://images.unsplash.com/photo-1518605368461-1ee7c532066d?q=80&w=2000&auto=format&fit=crop') no-repeat center center fixed;
+            background-size: cover;
             color: var(--text-color);
             margin: 0;
             padding: 20px;
@@ -31,13 +34,16 @@
         h1 {
             text-align: center;
             color: var(--accent-color);
-            margin-bottom: 10px;
+            margin-bottom: 5px;
+            text-shadow: 0 0 10px rgba(0, 255, 115, 0.3);
+            font-size: 2.2em;
         }
         
         p.subtitle {
             text-align: center;
             color: var(--text-muted);
             margin-bottom: 25px;
+            font-size: 1.1em;
         }
 
         .input-group {
@@ -45,25 +51,39 @@
             flex-direction: column;
             gap: 15px;
             margin-bottom: 25px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid var(--border-color);
+            backdrop-filter: blur(10px);
         }
 
         textarea {
             width: 100%;
-            height: 150px;
+            height: 140px;
             padding: 15px;
             border-radius: 8px;
             border: 1px solid var(--border-color);
-            background-color: var(--card-bg);
+            background-color: rgba(0, 0, 0, 0.3);
             color: #fff;
             font-size: 15px;
             outline: none;
             resize: vertical;
             box-sizing: border-box;
             font-family: monospace;
+            transition: all 0.3s ease;
         }
 
         textarea:focus {
             border-color: var(--accent-color);
+            box-shadow: 0 0 8px rgba(0, 255, 115, 0.2);
+        }
+
+        .buttons-row {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
         }
 
         button {
@@ -71,17 +91,28 @@
             border-radius: 8px;
             border: none;
             background-color: var(--accent-color);
-            color: #121826;
+            color: #000;
             font-weight: bold;
             font-size: 16px;
             cursor: pointer;
-            transition: opacity 0.2s;
-            align-self: center;
+            transition: all 0.3s;
             min-width: 200px;
+            box-shadow: 0 4px 15px rgba(0, 255, 115, 0.2);
         }
 
         button:hover {
-            opacity: 0.9;
+            background-color: var(--accent-hover);
+            transform: translateY(-2px);
+        }
+
+        .secondary-btn {
+            background-color: #2b3b5c;
+            color: #fff;
+            box-shadow: none;
+        }
+
+        .secondary-btn:hover {
+            background-color: #3b4d75;
         }
 
         .results {
@@ -92,8 +123,16 @@
         .channel-card {
             background-color: var(--card-bg);
             border: 1px solid var(--border-color);
-            border-radius: 10px;
-            padding: 16px;
+            border-radius: 12px;
+            padding: 18px;
+            backdrop-filter: blur(12px); /* تأثير الزجاج */
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            transition: transform 0.2s;
+        }
+
+        .channel-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 255, 115, 0.3);
         }
 
         .channel-header {
@@ -101,14 +140,22 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 1px solid var(--border-color);
-            padding-bottom: 10px;
-            margin-bottom: 12px;
+            padding-bottom: 12px;
+            margin-bottom: 15px;
         }
 
         .channel-name {
-            font-size: 18px;
+            font-size: 19px;
             font-weight: bold;
             color: #fff;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .channel-name::before {
+            content: '📺';
+            font-size: 0.9em;
         }
 
         .actions {
@@ -117,22 +164,32 @@
         }
 
         .icon-btn {
-            background: none;
+            background: rgba(255, 255, 255, 0.05);
             border: 1px solid var(--border-color);
-            color: var(--text-muted);
-            padding: 6px 12px;
-            border-radius: 6px;
+            color: var(--text-color);
+            padding: 8px 14px;
+            border-radius: 8px;
             font-size: 14px;
             display: flex;
             align-items: center;
-            gap: 5px;
+            gap: 6px;
             text-decoration: none;
             cursor: pointer;
+            transition: all 0.2s;
         }
 
         .icon-btn:hover {
-            background-color: #2d3748;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+
+        .custom-link-badge {
+            background-color: rgba(0, 255, 115, 0.1);
             color: var(--accent-color);
+            border-color: rgba(0, 255, 115, 0.3);
+        }
+
+        .custom-link-badge:hover {
+            background-color: rgba(0, 255, 115, 0.2);
         }
 
         .countries-list {
@@ -142,42 +199,51 @@
         }
 
         .country-tag {
-            background-color: #242f42;
+            background-color: rgba(0, 0, 0, 0.4);
+            border: 1px solid var(--border-color);
             color: var(--text-muted);
-            padding: 4px 10px;
-            border-radius: 6px;
-            font-size: 13px;
-        }
-
-        .custom-link-badge {
-            color: var(--accent-color);
-            border-color: var(--accent-color);
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 13.5px;
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>مستخرج ومرتب القنوات</h1>
-    <p class="subtitle">حدد الجدول من موقع LiveSoccerTV بالماوس (من أول دولة لآخر قناة)، انسخه (Ctrl+C)، ثم الصقه هنا (Ctrl+V)</p>
+    <h1>⚽ مستخرج القنوات الرياضية</h1>
+    <p class="subtitle">حدد الجدول من موقع LiveSoccerTV وانسخه ثم الصقه هنا لترتيبه واستخراج الروابط</p>
     
     <div class="input-group">
-        <textarea id="pasteArea" placeholder="الصق القنوات والدول هنا..."></textarea>
-        <button onclick="processPastedText()">ترتيب القنوات</button>
+        <textarea id="pasteArea" placeholder="الصق القنوات والدول هنا (Ctrl+V)..."></textarea>
+        <div class="buttons-row">
+            <button onclick="processPastedText()">⚡ ترتيب القنوات</button>
+            <button onclick="exportToGitHub()" class="secondary-btn">💾 نسخ الروابط (لـ GitHub)</button>
+        </div>
     </div>
 
     <div class="results" id="results"></div>
 </div>
 
 <script>
-    // تخزين روابط القنوات
     let customLinks = {};
 
-    // تحميل الروابط من المتصفح عند فتح الصفحة
-    function loadSavedLinks() {
+    async function loadSavedLinks() {
+        // محاولة جلب الملف من جيت هاب لو موجود
+        try {
+            const res = await fetch('channels.json');
+            if (res.ok) {
+                const data = await res.json();
+                customLinks = { ...data };
+            }
+        } catch (e) {
+            console.log("جاري الاعتماد على الذاكرة المحلية.");
+        }
+
+        // دمج البيانات اللي تم تعديلها في المتصفح
         const localData = localStorage.getItem('custom_channel_links');
         if (localData) {
-            customLinks = JSON.parse(localData);
+            customLinks = { ...customLinks, ...JSON.parse(localData) };
         }
     }
 
@@ -196,22 +262,16 @@
         const lines = text.split('\n');
 
         lines.forEach(line => {
-            // تنظيف السطر
             line = line.trim();
             if (!line) return;
 
-            // عندما تقوم بنسخ جدول من المتصفح، يتم فصل الأعمدة بمسافة Tab (\t)
-            // إذا لم يجد Tab، سيحاول الفصل بالمسافات الكبيرة الناتجة عن النسخ
             let parts = line.split(/\t| {2,}/); 
 
             if (parts.length >= 2) {
-                // الجزء الأول دائماً يكون الدولة
                 let country = parts[0].trim();
                 
-                // الأجزاء الباقية هي القنوات
                 for (let i = 1; i < parts.length; i++) {
                     let chName = parts[i].trim();
-                    // تجاهل الكلمات غير المفيدة
                     if (chName && chName.length > 1 && !chName.toLowerCase().includes('live stream') && !chName.toLowerCase().includes('tv schedule')) {
                         if (!channelsMap[chName]) {
                             channelsMap[chName] = new Set();
@@ -222,7 +282,6 @@
             }
         });
 
-        // الترتيب الأبجدي للقنوات
         const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
             acc[key] = Array.from(channelsMap[key]);
             return acc;
@@ -237,7 +296,7 @@
 
         const keys = Object.keys(channels);
         if (keys.length === 0) {
-            resultsDiv.innerHTML = '<p style="text-align:center; color: #ef4444;">لم يتم التعرف على قنوات. تأكد من نسخ الجدول كاملاً بشكل صحيح.</p>';
+            resultsDiv.innerHTML = '<p style="text-align:center; color: #ff4d4d; font-size: 1.2em;">لم يتم التعرف على قنوات. تأكد من نسخ الجدول كاملاً بشكل صحيح.</p>';
             return;
         }
 
@@ -246,18 +305,17 @@
             const card = document.createElement('div');
             card.className = 'channel-card';
 
-            // تحديد الرابط: هل هو محفوظ أم رابط بحث جوجل؟
             const savedLink = customLinks[channel];
-            const targetUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel + " live streaming")}`;
+            const targetUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel + " live streaming official")}`;
 
             card.innerHTML = `
                 <div class="channel-header">
                     <span class="channel-name">${channel}</span>
                     <div class="actions">
                         <a href="${targetUrl}" target="_blank" class="icon-btn ${savedLink ? 'custom-link-badge' : ''}" title="افتح القناة">
-                            🔗 ${savedLink ? 'رابط القناة' : 'بحث جوجل'}
+                            ${savedLink ? '🔗 رابط القناة' : '🔍 بحث جوجل'}
                         </a>
-                        <button onclick="addCustomLink('${channel}')" class="icon-btn" title="أضف أو عدل رابط هذه القناة">⚙️</button>
+                        <button onclick="addCustomLink('${channel}')" class="icon-btn" title="تعديل/إضافة رابط مباشر للقناة">⚙️ تعديل</button>
                     </div>
                 </div>
                 <div class="countries-list">
@@ -274,16 +332,32 @@
 
         if (newLink !== null) {
             if (newLink.trim() === '') {
-                delete customLinks[channelName]; // حذف الرابط إذا تركه فارغاً
+                delete customLinks[channelName];
             } else {
-                customLinks[channelName] = newLink.trim(); // حفظ الرابط الجديد
+                customLinks[channelName] = newLink.trim();
             }
-            // حفظ التغييرات في ذاكرة المتصفح
             localStorage.setItem('custom_channel_links', JSON.stringify(customLinks));
-            
-            // إعادة رسم القنوات لتحديث شكل الزر فوراً (من بحث جوجل إلى رابط القناة)
             processPastedText();
         }
+    }
+
+    // الدالة الجديدة الخاصة بنسخ كود الروابط لرفعه على جيت هاب
+    function exportToGitHub() {
+        if (Object.keys(customLinks).length === 0) {
+            alert("ليس لديك أي قنوات محفوظة حالياً لتصديرها.");
+            return;
+        }
+
+        // تحويل البيانات لشكل JSON منسق ومرتب
+        const jsonString = JSON.stringify(customLinks, null, 4);
+
+        // نسخ النص للحافظة (Clipboard)
+        navigator.clipboard.writeText(jsonString).then(() => {
+            alert("✅ تم نسخ الروابط بنجاح!\n\nاذهب الآن إلى حسابك في GitHub، افتح ملف channels.json، وامسح محتواه القديم والصق هذا الكود.");
+        }).catch(err => {
+            alert("حدث خطأ أثناء النسخ. يمكنك نسخ الكود من النافذة التالية:");
+            prompt("انسخ الكود بالأسفل (Ctrl+C):", jsonString);
+        });
     }
 </script>
 
