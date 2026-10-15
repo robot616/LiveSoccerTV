@@ -155,11 +155,11 @@
     <h1>مستخرج القنوات الرياضية</h1>
     
     <div class="input-group">
-        <input type="text" id="matchUrl" placeholder="ضع رابط المباراة من LiveSoccerTV هنا...">
+        <input type="text" id="matchUrl" placeholder="ضع رابط المباراة من LiveSoccerTV هنا (تأكد أنه يبدأ بـ https)...">
         <button onclick="processMatch()">استخراج القنوات</button>
     </div>
 
-    <div class="loading" id="loading">جاري سحب البيانات واستخراج مربع International Coverage...</div>
+    <div class="loading" id="loading">جاري سحب البيانات، يرجى الانتظار قليلاً...</div>
 
     <div class="results" id="results"></div>
 </div>
@@ -167,7 +167,7 @@
 <script>
     let customLinks = {};
 
-    // تحميل الروابط المحفوظة من ملف JSON وحفظ الذاكرة المحلية
+    // تحميل الروابط المحفوظة
     async function loadSavedLinks() {
         try {
             const res = await fetch('channels.json');
@@ -176,7 +176,7 @@
                 customLinks = { ...data };
             }
         } catch (e) {
-            console.log("No channels.json found, relying on local storage.");
+            console.log("No channels.json found on server.");
         }
 
         const localData = localStorage.getItem('custom_channel_links');
@@ -187,8 +187,30 @@
 
     loadSavedLinks();
 
+    // دالة لجلب الكود المصدري باستخدام عدة بدائل لضمان عدم الفشل
+    async function fetchHtml(url) {
+        const encodedUrl = encodeURIComponent(url);
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodedUrl}`,
+            `https://api.codetabs.com/v1/proxy?quest=${url}`,
+            `https://corsproxy.io/?${encodedUrl}`
+        ];
+
+        for (let proxy of proxies) {
+            try {
+                let response = await fetch(proxy);
+                if (response.ok) {
+                    return await response.text();
+                }
+            } catch (e) {
+                console.warn(`فشل الاتصال بالوسيط: ${proxy}`);
+            }
+        }
+        throw new Error("فشلت جميع محاولات الاتصال. تأكد من صحة الرابط أو قم بتعطيل مانع الإعلانات (Adblocker).");
+    }
+
     async function processMatch() {
-        const urlInput = document.getElementById('matchUrl').value.trim();
+        let urlInput = document.getElementById('matchUrl').value.trim();
         const resultsDiv = document.getElementById('results');
         const loadingDiv = document.getElementById('loading');
 
@@ -197,21 +219,20 @@
             return;
         }
 
+        // التأكد من أن الرابط يحتوي على بروتوكول
+        if (!urlInput.startsWith('http')) {
+            urlInput = 'https://' + urlInput;
+        }
+
         resultsDiv.innerHTML = '';
         loadingDiv.style.display = 'block';
 
         try {
-            // استخدام CORS Proxy لقراءة كود الصفحة
-            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(urlInput)}`;
-            const response = await fetch(proxyUrl);
-            const data = await response.json();
-
-            if (!data.contents) throw new Error("تعذر جلب محتوى الصفحة");
-
+            const htmlText = await fetchHtml(urlInput);
+            
             const parser = new DOMParser();
-            const doc = parser.parseFromString(data.contents, 'text/html');
+            const doc = parser.parseFromString(htmlText, 'text/html');
 
-            // تحديد موقع مربع International Coverage
             const coverageHeader = Array.from(doc.querySelectorAll('h2, h3, div')).find(
                 el => el.textContent.includes('International Coverage')
             );
@@ -235,7 +256,7 @@
                     const countryName = countryElem.textContent.trim();
                     channelLinks.forEach(ch => {
                         const chName = ch.textContent.trim();
-                        if (chName && chName.length > 1 && !chName.includes('Live Stream')) {
+                        if (chName && chName.length > 1 && !chName.includes('Live Stream') && !chName.includes('TV Schedule')) {
                             if (!channelsMap[chName]) {
                                 channelsMap[chName] = new Set();
                             }
@@ -245,7 +266,6 @@
                 }
             });
 
-            // الترتيب الأبجدي للقنوات
             const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
                 acc[key] = Array.from(channelsMap[key]);
                 return acc;
@@ -274,7 +294,7 @@
             card.className = 'channel-card';
 
             const savedLink = customLinks[channel];
-            const searchUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel)}`;
+            const searchUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel + " live")}`;
 
             card.innerHTML = `
                 <div class="channel-header">
@@ -305,8 +325,7 @@
                 customLinks[channelName] = newLink.trim();
             }
             localStorage.setItem('custom_channel_links', JSON.stringify(customLinks));
-            alert('تم حفظ الرابط بنجاح في متصفحك! لنقل التعديلات لملف GitHub يمكنك نسخ محتوى الذاكرة لملف channels.json.');
-            processMatch();
+            processMatch(); // إعادة التحميل لتحديث شكل الزر فوراً
         }
     }
 </script>
