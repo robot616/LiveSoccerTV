@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>مستخرج قنوات LiveSoccerTV</title>
+    <style>
+        :root {
+            --bg-color: #121826;
+            --card-bg: #1b2333;
+            --accent-color: #00d26a;
+            --text-color: #e2e8f0;
+            --text-muted: #94a3b8;
+            --border-color: #2d3748;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            direction: rtl;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            color: var(--accent-color);
+            margin-bottom: 25px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 12px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            background-color: var(--card-bg);
+            color: #fff;
+            font-size: 15px;
+            outline: none;
+        }
+
+        input[type="text"]:focus {
+            border-color: var(--accent-color);
+        }
+
+        button {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            background-color: var(--accent-color);
+            color: #121826;
+            font-weight: bold;
+            font-size: 15px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            font-size: 16px;
+            color: var(--accent-color);
+            margin: 20px 0;
+        }
+
+        .results {
+            display: grid;
+            gap: 15px;
+        }
+
+        .channel-card {
+            background-color: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            padding: 16px;
+        }
+
+        .channel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border-color);
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+        }
+
+        .channel-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            background: none;
+            border: 1px solid var(--border-color);
+            color: var(--text-muted);
+            padding: 6px 10px;
+            border-radius: 6px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            text-decoration: none;
+        }
+
+        .icon-btn:hover {
+            background-color: #2d3748;
+            color: var(--accent-color);
+        }
+
+        .countries-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .country-tag {
+            background-color: #242f42;
+            color: var(--text-muted);
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 13px;
+        }
+
+        .custom-link-badge {
+            color: var(--accent-color);
+            border-color: var(--accent-color);
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>مستخرج القنوات الرياضية</h1>
+    
+    <div class="input-group">
+        <input type="text" id="matchUrl" placeholder="ضع رابط المباراة من LiveSoccerTV هنا...">
+        <button onclick="processMatch()">استخراج القنوات</button>
+    </div>
+
+    <div class="loading" id="loading">جاري سحب البيانات واستخراج مربع International Coverage...</div>
+
+    <div class="results" id="results"></div>
+</div>
+
+<script>
+    let customLinks = {};
+
+    // تحميل الروابط المحفوظة من ملف JSON وحفظ الذاكرة المحلية
+    async function loadSavedLinks() {
+        try {
+            const res = await fetch('channels.json');
+            if (res.ok) {
+                const data = await res.json();
+                customLinks = { ...data };
+            }
+        } catch (e) {
+            console.log("No channels.json found, relying on local storage.");
+        }
+
+        const localData = localStorage.getItem('custom_channel_links');
+        if (localData) {
+            customLinks = { ...customLinks, ...JSON.parse(localData) };
+        }
+    }
+
+    loadSavedLinks();
+
+    async function processMatch() {
+        const urlInput = document.getElementById('matchUrl').value.trim();
+        const resultsDiv = document.getElementById('results');
+        const loadingDiv = document.getElementById('loading');
+
+        if (!urlInput) {
+            alert('يرجى إدخال الرابط أولاً');
+            return;
+        }
+
+        resultsDiv.innerHTML = '';
+        loadingDiv.style.display = 'block';
+
+        try {
+            // استخدام CORS Proxy لقراءة كود الصفحة
+            const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(urlInput)}`;
+            const response = await fetch(proxyUrl);
+            const data = await response.json();
+
+            if (!data.contents) throw new Error("تعذر جلب محتوى الصفحة");
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(data.contents, 'text/html');
+
+            // تحديد موقع مربع International Coverage
+            const coverageHeader = Array.from(doc.querySelectorAll('h2, h3, div')).find(
+                el => el.textContent.includes('International Coverage')
+            );
+
+            if (!coverageHeader) {
+                alert('لم يتم العثور على قسم International Coverage في الصفحة.');
+                loadingDiv.style.display = 'none';
+                return;
+            }
+
+            const container = coverageHeader.closest('table') || coverageHeader.parentElement;
+            const rows = container.querySelectorAll('tr, div.listing, div.matchrow');
+
+            let channelsMap = {};
+
+            rows.forEach(row => {
+                const countryElem = row.querySelector('.country, .flag, [class*="country"]');
+                const channelLinks = row.querySelectorAll('a');
+
+                if (countryElem && channelLinks.length > 0) {
+                    const countryName = countryElem.textContent.trim();
+                    channelLinks.forEach(ch => {
+                        const chName = ch.textContent.trim();
+                        if (chName && chName.length > 1 && !chName.includes('Live Stream')) {
+                            if (!channelsMap[chName]) {
+                                channelsMap[chName] = new Set();
+                            }
+                            channelsMap[chName].add(countryName);
+                        }
+                    });
+                }
+            });
+
+            // الترتيب الأبجدي للقنوات
+            const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
+                acc[key] = Array.from(channelsMap[key]);
+                return acc;
+            }, {});
+
+            renderResults(sortedChannels);
+
+        } catch (err) {
+            alert('حدث خطأ أثناء معالجة الرابط: ' + err.message);
+        } finally {
+            loadingDiv.style.display = 'none';
+        }
+    }
+
+    function renderResults(channels) {
+        const resultsDiv = document.getElementById('results');
+        resultsDiv.innerHTML = '';
+
+        if (Object.keys(channels).length === 0) {
+            resultsDiv.innerHTML = '<p style="text-align:center;">لم يتم العثور على قنوات.</p>';
+            return;
+        }
+
+        for (const [channel, countries] of Object.entries(channels)) {
+            const card = document.createElement('div');
+            card.className = 'channel-card';
+
+            const savedLink = customLinks[channel];
+            const searchUrl = savedLink || `https://www.google.com/search?q=${encodeURIComponent(channel)}`;
+
+            card.innerHTML = `
+                <div class="channel-header">
+                    <span class="channel-name">${channel}</span>
+                    <div class="actions">
+                        <a href="${searchUrl}" target="_blank" class="icon-btn ${savedLink ? 'custom-link-badge' : ''}">
+                            🔗 ${savedLink ? 'رابط القناة' : 'بحث جوجل'}
+                        </a>
+                        <button onclick="addCustomLink('${channel}')" class="icon-btn" title="تعديل/إضافة رابط">⚙️</button>
+                    </div>
+                </div>
+                <div class="countries-list">
+                    ${countries.map(c => `<span class="country-tag">${c}</span>`).join('')}
+                </div>
+            `;
+            resultsDiv.appendChild(card);
+        }
+    }
+
+    function addCustomLink(channelName) {
+        const currentLink = customLinks[channelName] || '';
+        const newLink = prompt(`أدخل الرابط المباشر لقناة "${channelName}":`, currentLink);
+
+        if (newLink !== null) {
+            if (newLink.trim() === '') {
+                delete customLinks[channelName];
+            } else {
+                customLinks[channelName] = newLink.trim();
+            }
+            localStorage.setItem('custom_channel_links', JSON.stringify(customLinks));
+            alert('تم حفظ الرابط بنجاح في متصفحك! لنقل التعديلات لملف GitHub يمكنك نسخ محتوى الذاكرة لملف channels.json.');
+            processMatch();
+        }
+    }
+</script>
+
+</body>
+</html>
