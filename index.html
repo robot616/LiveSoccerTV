@@ -51,7 +51,6 @@
             font-size: 1.1em;
         }
 
-        /* حاوية قسم الإدخال أو شريط الأدوات */
         .control-panel {
             display: flex;
             flex-direction: column;
@@ -65,7 +64,8 @@
             box-shadow: 0 10px 25px rgba(0,0,0,0.5);
         }
 
-        textarea {
+        /* مربع النصوص الغنية الجديد بدلاً من textarea */
+        .paste-area {
             width: 100%;
             height: 140px;
             padding: 15px;
@@ -75,13 +75,15 @@
             color: #fff;
             font-size: 16px;
             outline: none;
-            resize: vertical;
+            overflow-y: auto;
             box-sizing: border-box;
-            font-family: monospace;
             transition: all 0.3s ease;
         }
-
-        textarea:focus {
+        .paste-area:empty:before {
+            content: attr(data-placeholder);
+            color: rgba(255, 255, 255, 0.5);
+        }
+        .paste-area:focus {
             border-color: var(--accent-color);
             background-color: rgba(0, 0, 0, 0.6);
             box-shadow: 0 0 10px rgba(0, 255, 115, 0.3);
@@ -257,7 +259,7 @@
     
     <!-- قسم الإدخال (يختفي بعد السحب) -->
     <div class="control-panel" id="inputSection">
-        <textarea id="pasteArea" placeholder="الصق القنوات والدول هنا (Ctrl+V)..."></textarea>
+        <div id="pasteArea" class="paste-area" contenteditable="true" data-placeholder="الصق الجدول هنا (Ctrl+V)... سيتم الحفاظ على التنسيق لفصل القنوات بدقة"></div>
         <div class="buttons-row">
             <button onclick="processPastedText()">⚡ ترتيب القنوات</button>
             <button onclick="exportToGitHub()" class="secondary-btn">💾 نسخ الروابط (لـ GitHub)</button>
@@ -299,37 +301,60 @@
     loadSavedLinks();
 
     function processPastedText() {
-        const text = document.getElementById('pasteArea').value.trim();
+        const pasteArea = document.getElementById('pasteArea');
         const resultsDiv = document.getElementById('results');
 
-        if (!text) {
+        if (!pasteArea.textContent.trim()) {
             alert('يرجى لصق البيانات في المربع أولاً');
             return;
         }
 
         let channelsMap = {};
-        const lines = text.split('\n');
+        
+        // استخراج الصفوف من الجدول الملصوق (نفس طريقة الإضافة)
+        const rows = pasteArea.querySelectorAll('tr');
 
-        lines.forEach(line => {
-            line = line.trim();
-            if (!line) return;
-
-            let parts = line.split(/\t| {2,}/); 
-
-            if (parts.length >= 2) {
-                let country = parts[0].trim();
-                
-                for (let i = 1; i < parts.length; i++) {
-                    let chName = parts[i].trim();
-                    if (chName && chName.length > 1 && !chName.toLowerCase().includes('live stream') && !chName.toLowerCase().includes('tv schedule')) {
-                        if (!channelsMap[chName]) {
-                            channelsMap[chName] = new Set();
-                        }
-                        channelsMap[chName].add(country);
+        if (rows.length > 0) {
+            // لو تم لصق جدول حقيقي
+            rows.forEach(row => {
+                const cells = row.querySelectorAll('td');
+                if (cells.length > 0) {
+                    // الخلية الأولى عادة بتكون الدولة
+                    let countryName = cells[0].textContent.trim();
+                    
+                    // الخلية التانية فيها القنوات (روابط)
+                    let channelLinks = row.querySelectorAll('a');
+                    
+                    if (channelLinks.length > 0) {
+                        channelLinks.forEach(ch => {
+                            let chName = ch.textContent.trim();
+                            if (chName && chName.length > 1 && !chName.toLowerCase().includes('live stream') && !chName.toLowerCase().includes('tv schedule')) {
+                                if (!channelsMap[chName]) channelsMap[chName] = new Set();
+                                channelsMap[chName].add(countryName);
+                            }
+                        });
                     }
                 }
-            }
-        });
+            });
+        } else {
+            // كود بديل لو تم لصق نص عادي
+            const lines = pasteArea.innerText.split('\n');
+            lines.forEach(line => {
+                line = line.trim();
+                if (!line) return;
+                let parts = line.split(/\t| {2,}/); 
+                if (parts.length >= 2) {
+                    let country = parts[0].trim();
+                    for (let i = 1; i < parts.length; i++) {
+                        let chName = parts[i].trim();
+                        if (chName && chName.length > 1 && !chName.toLowerCase().includes('live stream') && !chName.toLowerCase().includes('tv schedule')) {
+                            if (!channelsMap[chName]) channelsMap[chName] = new Set();
+                            channelsMap[chName].add(country);
+                        }
+                    }
+                }
+            });
+        }
 
         const sortedKeys = Object.keys(channelsMap).sort();
         
@@ -345,11 +370,11 @@
 
         renderResults(sortedChannels);
         
-        // بعد نجاح السحب: إخفاء مربع اللصق وإظهار مربع البحث
+        // إخفاء مربع اللصق وإظهار مربع البحث
         document.getElementById('inputSection').style.display = 'none';
         document.getElementById('postActions').style.display = 'flex';
         document.getElementById('mainSubtitle').style.display = 'none';
-        document.getElementById('searchInput').value = ''; // تصفير البحث
+        document.getElementById('searchInput').value = ''; 
     }
 
     function renderResults(channels) {
@@ -403,7 +428,7 @@
 
     // دالة مسح كل شيء والعودة للبداية
     function resetPage() {
-        document.getElementById('pasteArea').value = '';
+        document.getElementById('pasteArea').innerHTML = ''; // مسح محتوى مربع الإدخال
         document.getElementById('results').innerHTML = '';
         document.getElementById('postActions').style.display = 'none';
         document.getElementById('inputSection').style.display = 'flex';
