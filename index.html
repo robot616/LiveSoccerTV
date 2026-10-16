@@ -20,9 +20,8 @@
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            /* خلفية كرة قدم صريحة على أرضية الملعب */
-           background: linear-gradient(rgba(9, 15, 28, 0.6), rgba(9, 15, 28, 0.8)), 
-                       url('https://images.unsplash.com/photo-1614632537190-23e4146777db?q=80&w=2000&auto=format&fit=crop') no-repeat center center fixed;
+            background: linear-gradient(rgba(9, 15, 28, 0.6), rgba(9, 15, 28, 0.8)), 
+                        url('https://images.unsplash.com/photo-1614632537190-23e4146777db?q=80&w=2000&auto=format&fit=crop') no-repeat center center fixed;
             background-size: cover;
             color: var(--text-color);
             margin: 0;
@@ -52,7 +51,8 @@
             font-size: 1.1em;
         }
 
-        .input-group {
+        /* حاوية قسم الإدخال أو شريط الأدوات */
+        .control-panel {
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -85,6 +85,25 @@
             border-color: var(--accent-color);
             background-color: rgba(0, 0, 0, 0.6);
             box-shadow: 0 0 10px rgba(0, 255, 115, 0.3);
+        }
+
+        .search-input {
+            width: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            color: #fff;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-family: inherit;
+            font-size: 16px;
+            outline: none;
+            transition: 0.2s;
+            box-sizing: border-box;
+        }
+
+        .search-input:focus {
+            border-color: var(--accent-color);
+            background-color: rgba(0, 0, 0, 0.7);
         }
 
         .buttons-row {
@@ -122,6 +141,17 @@
 
         .secondary-btn:hover {
             background-color: rgba(255, 255, 255, 0.25);
+        }
+        
+        .danger-btn {
+            background-color: rgba(255, 50, 50, 0.2);
+            color: #fff;
+            border: 1px solid rgba(255, 50, 50, 0.5);
+            box-shadow: none;
+        }
+        
+        .danger-btn:hover {
+            background-color: rgba(255, 50, 50, 0.4);
         }
 
         .results {
@@ -223,13 +253,23 @@
 
 <div class="container">
     <h1>⚽ LiveSoccerTV</h1>
-    <p class="subtitle">حدد الجدول من موقع LiveSoccerTV وانسخه ثم الصقه هنا لترتيبه واستخراج الروابط</p>
+    <p class="subtitle" id="mainSubtitle">حدد الجدول من موقع LiveSoccerTV وانسخه ثم الصقه هنا لترتيبه واستخراج الروابط</p>
     
-    <div class="input-group">
+    <!-- قسم الإدخال (يختفي بعد السحب) -->
+    <div class="control-panel" id="inputSection">
         <textarea id="pasteArea" placeholder="الصق القنوات والدول هنا (Ctrl+V)..."></textarea>
         <div class="buttons-row">
             <button onclick="processPastedText()">⚡ ترتيب القنوات</button>
             <button onclick="exportToGitHub()" class="secondary-btn">💾 نسخ الروابط (لـ GitHub)</button>
+        </div>
+    </div>
+
+    <!-- قسم البحث والمسح (يظهر فقط بعد السحب) -->
+    <div class="control-panel" id="postActions" style="display: none;">
+        <input type="text" id="searchInput" class="search-input" placeholder="🔍 بحث عن قناة أو دولة...">
+        <div class="buttons-row">
+            <button onclick="resetPage()" class="danger-btn">🧹 مسح وبحث جديد</button>
+            <button onclick="exportToGitHub()" class="secondary-btn">💾 تصدير الروابط</button>
         </div>
     </div>
 
@@ -291,12 +331,25 @@
             }
         });
 
-        const sortedChannels = Object.keys(channelsMap).sort().reduce((acc, key) => {
+        const sortedKeys = Object.keys(channelsMap).sort();
+        
+        if (sortedKeys.length === 0) {
+            resultsDiv.innerHTML = '<p style="text-align:center; color: #ff4d4d; font-size: 1.2em; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px;">لم يتم التعرف على قنوات. تأكد من نسخ الجدول كاملاً بشكل صحيح.</p>';
+            return;
+        }
+
+        const sortedChannels = sortedKeys.reduce((acc, key) => {
             acc[key] = Array.from(channelsMap[key]);
             return acc;
         }, {});
 
         renderResults(sortedChannels);
+        
+        // بعد نجاح السحب: إخفاء مربع اللصق وإظهار مربع البحث
+        document.getElementById('inputSection').style.display = 'none';
+        document.getElementById('postActions').style.display = 'flex';
+        document.getElementById('mainSubtitle').style.display = 'none';
+        document.getElementById('searchInput').value = ''; // تصفير البحث
     }
 
     function renderResults(channels) {
@@ -304,11 +357,7 @@
         resultsDiv.innerHTML = '';
 
         const keys = Object.keys(channels);
-        if (keys.length === 0) {
-            resultsDiv.innerHTML = '<p style="text-align:center; color: #ff4d4d; font-size: 1.2em; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 8px;">لم يتم التعرف على قنوات. تأكد من نسخ الجدول كاملاً بشكل صحيح.</p>';
-            return;
-        }
-
+        
         keys.forEach(channel => {
             const countries = channels[channel];
             const card = document.createElement('div');
@@ -333,6 +382,32 @@
             `;
             resultsDiv.appendChild(card);
         });
+    }
+
+    // ميزة البحث اللحظي في القنوات والدول
+    document.getElementById('searchInput').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase().trim();
+        const cards = document.querySelectorAll('.channel-card');
+        
+        cards.forEach(card => {
+            const channelName = card.querySelector('.channel-name').textContent.toLowerCase();
+            const countries = card.querySelector('.countries-list').textContent.toLowerCase();
+            
+            if (channelName.includes(searchTerm) || countries.includes(searchTerm)) {
+                card.style.display = 'block';
+            } else {
+                card.style.display = 'none';
+            }
+        });
+    });
+
+    // دالة مسح كل شيء والعودة للبداية
+    function resetPage() {
+        document.getElementById('pasteArea').value = '';
+        document.getElementById('results').innerHTML = '';
+        document.getElementById('postActions').style.display = 'none';
+        document.getElementById('inputSection').style.display = 'flex';
+        document.getElementById('mainSubtitle').style.display = 'block';
     }
 
     function addCustomLink(channelName) {
